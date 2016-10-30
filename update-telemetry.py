@@ -136,7 +136,7 @@ def main():
         'frame', 'compressed', 'multicast',
     ]
     field_format = '(?P<{direction}_{field}>\d+)'
-    
+
     pattern = re.compile(
         '^\s*(?P<device_name>[\w-]+):\s+' + '\s+'.join(
             itertools.chain.from_iterable((field_format.format(direction=direction, field=field)
@@ -197,10 +197,15 @@ def main():
                 update['context_switches'] = value.strip()
                 break
 
+    with open('/proc/uptime') as fh:
+        line = fh.read()
+        uptime, _ = line.split()
+        update['uptime'] = int(uptime)
+
     for name, filename in fastd_sockets:
         if not os.path.exists(filename):
             continue
- 
+
         data = read_from_fastd_socket(filename)
         if len(data) > 0:
             update.update({'fastd.%s.%s' % (name, key): value for (key, value) in data.items()})
