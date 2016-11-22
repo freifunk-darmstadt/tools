@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import pprint
 import time
 import socket
+import subprocess
 import logging
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ def read_from_fastd_socket(filename):
             print(e)
             return {}
 
+
 def get_fastd_process_stats():
     for proc in psutil.process_iter():
         if proc.name() == 'fastd':
@@ -97,10 +99,31 @@ def get_fastd_process_stats():
 
                         drop_count += int(parts[-1])
 
-
             return drop_count
 
     return None
+
+
+def get_neighbour_table_states(family=socket.AF_INET6):
+    if family is socket.AF_INET:
+        family = '-4'
+    elif family is socket.AF_INET6:
+        family = '-6'
+    else:
+        return
+    response = subprocess.check_output(
+        ['/bin/ip', family, 'neigh', 'show', 'nud', 'all']
+    ).decode()
+
+    states = {'PERMANENT': 0, 'NOARP': 0, 'REACHABLE': 0, 'STALE': 0, 'NONE': 0,
+              'INCOMPLETE': 0, 'DELAY': 0, 'PROBE': 0, 'FAILED': 0}
+
+    for neigh_entry in response.split('\n'):
+        if not neigh_entry:
+            continue
+        states[neigh_entry.split()[-1]] += 1
+
+    return states
 
 
 def main():
@@ -136,7 +159,7 @@ def main():
         'frame', 'compressed', 'multicast',
     ]
     field_format = '(?P<{direction}_{field}>\d+)'
-    
+
     pattern = re.compile(
         '^\s*(?P<device_name>[\w-]+):\s+' + '\s+'.join(
             itertools.chain.from_iterable((field_format.format(direction=direction, field=field)
@@ -168,7 +191,7 @@ def main():
         update['load.5'] = values[1]
         update['load.1'] = values[2]
 
-    for key in  ['count', 'max']:
+    for key in ['count', 'max']:
         try:
             with open('/proc/sys/net/netfilter/nf_conntrack_%s' % key, 'r') as fh:
                 update['netfilter.%s' % key] = fh.read().strip()
@@ -190,6 +213,11 @@ def main():
             for key, value in zip(headings, values):
                 update['ipv4.%s.%s' % (section, key)] = value
 
+    for af, prefix in [(socket.AF_INET, 'ipv4.Neigh'),
+                       (socket.AF_INET6, 'ipv6.Neigh')]:
+        for state, count in get_neighbour_table_states(af).items():
+            update['{0}.{1}'.format(prefix, state.lower())] = count
+
     with open('/proc/stat', 'r') as fh:
         for line in fh.readlines():
             key, value = line.split(' ', 1)
@@ -200,7 +228,7 @@ def main():
     for name, filename in fastd_sockets:
         if not os.path.exists(filename):
             continue
- 
+
         data = read_from_fastd_socket(filename)
         if len(data) > 0:
             update.update({'fastd.%s.%s' % (name, key): value for (key, value) in data.items()})
@@ -211,7 +239,6 @@ def main():
 
     #pprint.pprint(update)
     write_to_graphite(update)
-
 
 if __name__ == "__main__":
     main()
