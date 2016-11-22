@@ -121,7 +121,12 @@ def get_neighbour_table_states(family=socket.AF_INET6):
     for neigh_entry in response.split('\n'):
         if not neigh_entry:
             continue
-        states[neigh_entry.split()[-1]] += 1
+
+        state = neigh_entry.split()[-1]
+        if state not in states:
+            continue
+
+        states[state] += 1
 
     return states
 
