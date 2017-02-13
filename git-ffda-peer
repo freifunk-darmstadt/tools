@@ -99,7 +99,7 @@ def aa(args):
         re.compile(''.join([
             r'#?\s*(?P<name>{})\s*\n'.format(name_exp),
             r'(#(?P<mac>[^\n]*)\n)?',
-            r'((key (?P<quote>["\' ]))?(?P<key>[a-z0-9]{64})(\g<quote>;?)?)\n?'
+            r'((key (?P<quote>["\' ]))?(?P<key>[a-z0-9]{64})(\\g<quote>;?)?)\n?'
             ]), flags=re.MULTILINE),
     ]
 
