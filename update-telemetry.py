@@ -47,6 +47,36 @@ def write_to_graphite(data, prefix='freifunk', hostname=socket.gethostname()):
             line = "%s.%s.%s %s %s\n" % (prefix, hostname, key, value, now)
             s.sendall(line.encode('latin-1'))
 
+def write_to_node_collector(filename, data, patterns, prefix='freifunk'):
+    patterns = [re.compile(exp) for exp in patterns]
+    print(data)
+    updates = []
+    for metric, value in data.items():
+        for pattern in patterns:
+            m = pattern.match(metric)
+            if m:
+                groups = m.groupdict()
+                if all(key in groups for key in ['key']):
+                    updates.append([groups, value])
+                    break
+    content = []
+    for update, value in updates:
+        key = update['key'].replace('.', '_')
+        sub_key = update.pop('sub_key', None)
+        if prefix:
+            key = '{}_{}'.format(prefix, key)
+
+        if sub_key:
+            key += '_' + sub_key
+
+        params =update.copy()
+        params.pop('key')
+        params = ','.join(['{}={}'.format(k, v) for k, v in params.items()])
+        params = '{%s}' % (params)
+        content.append('{key}{params} {value}'.format(key=key, params=params, value=value))
+    with open(filename, 'w') as fh:
+        fh.write('\n'.join(content))
+
 
 def read_from_fastd_socket(filename):
     with get_unix_socket(filename) as client:
@@ -244,6 +274,11 @@ def main():
 
     #pprint.pprint(update)
     write_to_graphite(update)
+    write_to_node_collector('/dev/shm/telementry.prom', update, patterns=[
+#        '^(?P<interface>[^.]+)\.(?P<key>(rx|tx).+)',
+        '^(?P<key>fastd)\.(?P<fast_instance>.+)\.(?P<sub_key>.+)',
+#        '^(?P<key>load)\.(?P<period>\d+)'
+    ], prefix='ffda_')
 
 if __name__ == "__main__":
     main()
