@@ -274,7 +274,7 @@ def main():
 
     #pprint.pprint(update)
     write_to_graphite(update)
-    write_to_node_collector('/dev/shm/telementry.prom', update, patterns=[
+    write_to_node_collector('/dev/shm/telemetry.prom', update, patterns=[
 #        '^(?P<interface>[^.]+)\.(?P<key>(rx|tx).+)',
         '^(?P<key>fastd)\.(?P<fast_instance>.+)\.(?P<sub_key>.+)',
 #        '^(?P<key>load)\.(?P<period>\d+)'
