@@ -13,12 +13,12 @@ def file_contains(fh, line):
     return False
 
 def search_key(key, dir='.'):
-    for file in os.listdir(dir):
-        if os.path.isdir(dir):
+    for filename in os.listdir(dir):
+        if os.path.isdir(filename):
             continue
-        with open(file, 'r') as fh:
-            if file_contains(fh, line):
-                yield file
+        with open(filename) as fh:
+            if file_contains(fh, key):
+                yield filename
 
 def search_name(name, dir='.'):
     for file in os.listdir(dir):
