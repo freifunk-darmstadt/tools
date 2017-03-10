@@ -3,6 +3,9 @@ import logging
 import pprint
 import socket
 import time
+import pytz
+import datetime
+import dateutil.parser
 from contextlib import contextmanager
 
 import requests
@@ -91,14 +94,20 @@ def yield_nodes(data):
         for mac, node in data['nodes'].items():
             yield node
         return
-    raise RuntimeError("Invalid version: %i" % version)
+    elif version == 0:
+        for mac, node in data.items():
+            yield node
+    else:
+        raise RuntimeError("Invalid version: %i" % version)
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
+    offline_threshold = datetime.timedelta(seconds=600)
     while True:
+        now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
         pprinter = pprint.PrettyPrinter(indent=4)
 
-        URL = 'https://www1.darmstadt.freifunk.net/data/nodes.json'
+        URL = 'https://www1.darmstadt.freifunk.net/data/raw.json'
 
         gateways = []
 
@@ -116,14 +125,23 @@ def main():
                 known_nodes += 1
                 try:
                     hostname = node['nodeinfo']['hostname']
+                    if hostname.startswith('gw'):
+                        hostname = hostname.split('.', 1)[0]
 
-                    flags = node['flags']
-                    if flags['online']:
-                        online_nodes += 1
+                    if 'flags' in node:
+                        flags = node['flags']
+                        if flags['online']:
+                            online_nodes += 1
 
-                    if flags.get('gateway', False):
-                        gateway_count += 1
-                        gateways.append(hostname)
+                        if flags.get('gateway', False):
+                            gateway_count += 1
+                            gateways.append(hostname)
+
+                    else:
+                        if 'lastupdate' in node:
+                            delta = now - dateutil.parser.parse(node['lastupdate']['statistics'])
+                            if delta < offline_threshold:
+                                online_nodes += 1
 
                     statistics = node['statistics']
                     # try:
@@ -139,8 +157,14 @@ def main():
 
                     try:
                         clients = statistics['clients']
-                        client_count += int(clients)
-                        # update['%s.clients' % hostname] = clients
+                        if type(clients) is dict:
+                            client_count += clients['total']
+                            update['%s.clients' %hostname] = clients['total']
+                            update['%s.clients.wifi5' %hostname] = clients.get('wifi5', 0)
+                            update['%s.clients.wifi24' %hostname] = clients.get('wifi24', 0)
+                        else:
+                            client_count += int(clients)
+                            update['%s.clients' % hostname] = int(clients)
                     except KeyError:
                         pass
 
@@ -150,7 +174,7 @@ def main():
                             update['%s.traffic.%s.packets' % (hostname, key)] = traffic[key]['packets']
                             update['%s.traffic.%s.bytes' % (hostname, key)] = traffic[key]['bytes']
                     except KeyError:
-                        pass
+                        print('failed to get traffic:', statistics)
 
                     try:
                         key = 'firmware.release.%s' % node['nodeinfo']['software']['firmware']['release']
@@ -168,7 +192,13 @@ def main():
                     except KeyError:
                         pass
 
-                    for key in ['memory_usage', 'rootfs_usage', 'uptime', 'loadavg', 'clients']:
+                    if 'memory' in statistics:
+                        memory = statistics['memory']
+                        print(memory)
+                        if type(memory) is dict:
+                            update['%s.memory_usage' % hostname] = (float(memory['total']) -float(memory['free']))/float(memory['total'])
+
+                    for key in ['memory_usage', 'rootfs_usage', 'uptime', 'loadavg']:
                         try:
                             val = statistics[key]
                             update['%s.%s' % (hostname, key)] = val
