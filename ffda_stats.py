@@ -35,7 +35,7 @@ def write_to_graphite(data, prefix='freifunk', log=None):
 
 def parse_graph(nodes):
     # parse graph
-    URL = 'https://map.darmstadt.freifunk.net/data/graph.json'
+    URL = 'https://meshviewer.darmstadt.freifunk.net/data/ffda/graph.json'
     update = {}
 
     data = requests.get(URL, timeout=1).json()
@@ -107,14 +107,14 @@ def main():
         now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
         pprinter = pprint.PrettyPrinter(indent=4)
 
-        URL = 'https://www1.darmstadt.freifunk.net/data/raw.json'
+        URL = 'https://meshviewer.darmstadt.freifunk.net/data/ffda/nodes.json'
 
         gateways = []
 
         try:
             client_count = 0
 
-            r = requests.get(URL, timeout=1, headers={'Host': 'map.darmstadt.freifunk.net'})
+            r = requests.get(URL, timeout=1)
             print(r.headers)
             data = r.json()
             known_nodes = 0
@@ -171,10 +171,12 @@ def main():
                     try:
                         traffic = statistics['traffic']
                         for key in ['tx', 'rx', 'mgmt_tx', 'mgmt_rx', 'forward']:
+                            if len(traffic[key]) == 0:
+                                continue
                             update['%s.traffic.%s.packets' % (hostname, key)] = traffic[key]['packets']
                             update['%s.traffic.%s.bytes' % (hostname, key)] = traffic[key]['bytes']
-                    except KeyError:
-                        print('failed to get traffic:', statistics)
+                    except KeyError as e:
+                        print('failed to get traffic:', e, key, traffic)
 
                     try:
                         key = 'firmware.release.%s' % node['nodeinfo']['software']['firmware']['release']
