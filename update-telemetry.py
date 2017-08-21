@@ -174,17 +174,11 @@ def main():
     }
     device_whitelist = [
         'eth0',
-        'tun-ffrl-ber',
-        'tun-ffrl-dus',
-        'tun-ffrl-fra',
-        'tun-ffda-gw01',
-        'tun-ffda-gw02',
-        'tun-ffda-gw03',
-        'tun-ffda-gw04',
         'ffda-vpn',
+        'ffda-vpn-1280',
+        'ffda-vpn-1312',
         'ffda-bat',
         'ffda-br',
-        'icvpn',
         'ffda-transport',
         'services',
     ]
