@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import logging
 import pprint
 import socket
@@ -25,7 +26,7 @@ def get_socket(host, port):
 def write_to_graphite(data, prefix='freifunk', log=None):
     # {u'status': u'up', u'graph': {u'max': 539, u'uptime': 90262, u'total': 9435, u'connected': 297, u'cap': 3000}, u'timestamp': 1421072166316}
     now = time.time()
-    with get_socket('graphite.h4ck.space', 2013) as s:
+    with get_socket(os.getenv('GRAPHITE_HOST', 'localhost'), 2013) as s:
         for key, value in data.items():
             line = "%s.%s %s %s\n" % (prefix, key, value, now)
             #            if not log is None:
